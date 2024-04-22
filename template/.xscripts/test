@@ -1,0 +1,5 @@
+#!/bin/bash
+# Description: Run the tests
+
+run: phpunit
+run: npm run test

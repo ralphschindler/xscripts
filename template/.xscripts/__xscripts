@@ -1,0 +1,97 @@
+#!/bin/bash
+
+print_help() {
+  echo "Available scripts:"
+
+  for file in $(dirname "$0")/.xscripts/*; do
+    if [[ ! -f "$file" || "$(basename "$file")" == _* ]]; then
+      continue
+    fi
+    echo "  $(basename "$file")"
+  done
+}
+
+print_banner() {
+  # print a banner
+  tput setab 4
+  tput setaf 7
+  tput bold
+  printf "%0.s " $(seq 1 $(tput cols))
+  echo "xscript: $1"
+  tput sgr0
+}
+
+print_warning() {
+  # print a warning message
+  tput setab 3
+  tput setaf 0
+  tput bold
+  echo "xscript warning: $1"
+  tput sgr0
+}
+
+print_error() {
+  # print an error message
+  tput setab 1
+  tput setaf 7
+  tput bold
+  echo "xscript error: $1"
+  tput sgr0
+}
+
+parse_yaml() {
+  local prefix=$2
+  local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
+  sed -ne "s|^\($s\):|\1|" \
+       -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+       -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" "$1" |
+  awk -F$fs '{
+     indent = length($1)/2;
+     vname[indent] = $2;
+     for (i in vname) {if (i > indent) {delete vname[i]}}
+     if (length($3) > 0) {
+       vn=""; for (i=0; i<indent; i++) {vn=(vn)(vname[i])("_")}
+       printf("%s%s%s=\"%s\"\n", "'$prefix'",vn, $2, $3);
+     }
+   }'
+}
+
+docker_compose_up_if_necessary() {
+  if [ "$IS_DOCKER_COMPOSE_ENVIRONMENT" = true ] && [ "$IS_INSIDE_DOCKER_CONTAINER" = false ]; then
+    docker compose up -d
+  fi
+}
+
+prevent_running_inside_container() {
+  if [ "$IS_INSIDE_DOCKER_CONTAINER" = true ]; then
+    print_warning "Cannot run '$REQUESTED_SCRIPT' inside a docker container"
+    exit 1
+  fi
+}
+
+docker_compose_run:() {
+  # is docker running?
+  if ! docker --version > /dev/null; then
+    print_error "Docker is not running"
+    exit 1
+  fi
+
+  # print the command that is going to be run
+  print_banner "docker compose exec $SERVICE_NAME $@'"
+  docker compose exec $SERVICE_NAME "$@"
+}
+
+shell_run:() {
+  # print the command that is going to be run
+  print_banner "$@"
+  sh -c "$*"
+}
+
+
+if [ "$IS_DOCKER_COMPOSE_ENVIRONMENT" = true ] && [ "$IS_INSIDE_DOCKER_CONTAINER" = false ]; then
+  run:() { docker_compose_run: $@; }
+else
+  run:() { shell_run: $@; }
+fi
+
+

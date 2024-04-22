@@ -1,0 +1,40 @@
+#!/bin/bash
+
+readonly XSCRIPTS_DIR="$(dirname "$0")/.xscripts"
+readonly IS_DOCKER_COMPOSE_ENVIRONMENT=$((test -f ./docker-compose.yml || test -f ./docker-compose.yaml) && echo true || echo false)
+readonly IS_INSIDE_DOCKER_CONTAINER=$((test -f /.dockerenv) && echo true || echo false)
+
+# source files that start with underscore
+for file in "$XSCRIPTS_DIR"/*; do
+  if [[ "$(basename "$file")" == _* ]]; then
+    source $file
+  fi
+done
+
+# figure out the environment
+if [ "$IS_DOCKER_COMPOSE_ENVIRONMENT" = true ]; then
+  # get the name of the first service in the docker-compose file
+  SERVICE_NAME=$(parse_yaml ./docker-compose.yml | grep services | head -n 1 | cut -d "_" -f 2)
+fi
+
+# there must be at least one argument
+if [ -z "$1" ]; then
+  print_help
+  exit 0
+fi
+
+# loop through arguments checking the requested scripts
+for REQUESTED_SCRIPT in "$@"; do
+  REQUESTED_SCRIPT_PATH="$XSCRIPTS_DIR/$REQUESTED_SCRIPT"
+  if [ ! -f "$REQUESTED_SCRIPT_PATH" ]; then
+    echo "Script not found: $REQUESTED_SCRIPT_PATH"
+    print_help
+    exit 1
+  fi
+done
+
+# run requested scripts
+for REQUESTED_SCRIPT in "$@"; do
+  REQUESTED_SCRIPT_PATH="$XSCRIPTS_DIR/$REQUESTED_SCRIPT"
+  source "$REQUESTED_SCRIPT_PATH"
+done

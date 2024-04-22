@@ -1,0 +1,6 @@
+#!/bin/bash
+# Description: Bring the project up
+
+docker_compose_up_if_necessary
+
+run: npm install --no-progress --quiet

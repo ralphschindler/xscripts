@@ -1,0 +1,11 @@
+#!/bin/bash
+# Description: Bring the project up
+
+docker_compose_up_if_necessary
+
+run: composer install
+run: npm install --no-progress --quiet
+
+# run: artisan mysql-snapshots:load
+# run: npm run dev
+
