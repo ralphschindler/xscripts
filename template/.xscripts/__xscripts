@@ -1,14 +1,62 @@
 #!/bin/bash
+# https://xscripts.sh - XScripts To Rule Them All (Function Library)
+# Version: 0.1.0
+
+::load_libraries_and_commands() {
+  for file in $(find $XSCRIPTS_DIR -type f); do
+    root_file=${file#$XSCRIPTS_DIR/}
+    base_file=$(basename $root_file)
+
+    if [[ "$base_file" = "__xscripts" ]]; then continue; fi
+
+    if [[ "$base_file" == _* ]]; then
+      source $file
+    else
+      COMMANDS+=(${root_file//\//:}=$root_file)
+    fi
+  done
+}
 
 print_help() {
   echo "Available scripts:"
 
-  for file in $(dirname "$0")/.xscripts/*; do
-    if [[ ! -f "$file" || "$(basename "$file")" == _* ]]; then
-      continue
+  declare -a TOP_COMMANDS
+  declare -a SUB_COMMANDS
+
+  for command in "${COMMANDS[@]}"; do
+    IFS='=' read -r -a parts <<< "$command"
+
+    description=$(awk '/^# Description: /{print $0}' $XSCRIPTS_DIR/${parts[1]} | sed 's/^# Description: //')
+    order=$(awk '/^# Meta: order=/{print $0}' $XSCRIPTS_DIR/${parts[1]} | sed 's/^# Meta: order=//')
+
+    if [[ ${parts[0]} == *":"* ]]; then
+      SUB_COMMANDS+=("$order;${parts[0]};$description")
+    else
+      TOP_COMMANDS+=("$order;${parts[0]};$description")
     fi
-    echo "  $(basename "$file")"
   done
+
+  IFS=$'\n' TOP_COMMANDS=($(sort <<<"${TOP_COMMANDS[*]}"))
+  IFS=$'\n' SUB_COMMANDS=($(sort <<<"${SUB_COMMANDS[*]}"))
+
+  for line in "${TOP_COMMANDS[@]}"; do
+    IFS=';' read -r -a parts <<< "$line"
+    printf "  %-20s %s\n" "${parts[1]}" "${parts[2]}"
+  done
+
+  echo ""
+
+  # print to SUB_COMMANDS
+  for line in "${SUB_COMMANDS[@]}"; do
+    IFS=';' read -r -a parts <<< "$line"
+    if [[ ${parts[1]} == *":"* ]]; then
+      printf "  %-20s %s\n" "${parts[1]}" "${parts[2]}"
+    fi
+  done
+
+  echo ""
+
+  exit 0
 }
 
 print_banner() {

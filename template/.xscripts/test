@@ -1,5 +1,6 @@
 #!/bin/bash
 # Description: Run the tests
+# Meta: order=3
 
 run: phpunit
 run: npm run test
